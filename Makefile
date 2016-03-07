@@ -94,6 +94,7 @@ INC_DIRS += $(STM_ROOT)/Libraries/STM32F4xx_StdPeriph_Driver/inc
 
 # My source files
 SRCS   = main.c
+SRCS  += threads.c
 
 # Contains initialisation code and must be compiled into
 # our project. This file is in the current directory and
