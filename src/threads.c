@@ -1,5 +1,7 @@
 // #include <stdlib.h>
 
+#include "stm32f4xx_conf.h"
+
 #include "threads.h"
 #include "config.h"
 
@@ -16,10 +18,27 @@ static thread_t tasks[MAX_TASKS];
 static int last_task_id;
 static int first = 1;
 
+void thread_destroy(int thread_id)
+{
+	tasks[thread_id].active = 0;
+
+	// Free the stack
+	free(tasks[thread_id].stack_start);
+}
+
+void thread_self_destroy(void)
+{
+	asm volatile("cpsid i\n");
+	thread_destroy(last_task_id);
+	asm volatile("cpsie i\n");
+
+	while (1);
+}
+
 int thread_create(void (*thread)(void *), void *data)
 {
 	int thread_id;
-	void *stack_start;
+	uint32_t *stack_start;
 
 	// Find a free thread
 	for (thread_id = 0; thread_id < MAX_TASKS; thread_id++)
@@ -63,23 +82,6 @@ int thread_create(void (*thread)(void *), void *data)
 	tasks[thread_id].active = 1;
 
 	return 0;
-}
-
-void thread_destroy(int thread_id)
-{
-	tasks[thread_id].active = 0;
-
-	// Free the stack
-	free(tasks[thread_id].stack_start);
-}
-
-void thread_self_destroy(void)
-{
-	asm volatile("cpsid i\n");
-	thread_destroy(last_task_id);
-	asm volatile("cpsie i\n");
-
-	while (1);
 }
 
 void threads_run(void)
