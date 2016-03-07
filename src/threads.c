@@ -104,3 +104,34 @@ void threads_run(void)
 	             "pop {r0}\n"
 	             "bx lr\n");
 }
+
+// PendSV
+void __attribute__((naked)) context_switching_handler(void)
+{
+	// Save the old task's context
+	asm volatile("mrs   r0, psp\n"
+	             "stmdb r0!, {r4-r11, lr}\n");
+
+	// To get the task pointer address from result r0
+	asm volatile("mov   %0, r0\n" : "=r" (tasks[last_task_id].stack_p));
+
+	// Find a new task to run
+	while (1)
+	{
+		last_task_id++;
+
+		if (last_task_id == MAX_TASKS)
+			last_task_id = 0;
+
+		if (tasks[last_task_id].active)
+		{
+			// Move the task's stack pointer address into r0
+			asm volatile("mov r0, %0\n" : : "r" (tasks[last_task_id].stack_p));
+
+			// Restore the new task's context and jump to the task
+			asm volatile("ldmia r0!, {r4-r11, lr}\n"
+			             "msr psp, r0\n"
+			             "bx lr\n");
+		}
+	}
+}
