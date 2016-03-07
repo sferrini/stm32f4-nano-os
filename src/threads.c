@@ -3,7 +3,10 @@
 #include "threads.h"
 #include "config.h"
 
-typedef struct {
+#define THREAD_PSP	0xFFFFFFFD
+
+typedef struct
+{
 	void *stack_start;
 	void *stack_p;
 	char active;
@@ -15,6 +18,50 @@ static int first = 1;
 
 int thread_create(void (*thread)(void *), void *data)
 {
+	int thread_id;
+	void *stack_start;
+
+	// Find a free thread
+	for (thread_id = 0; thread_id < MAX_TASKS; thread_id++)
+	{
+		if (tasks[thread_id].active == 0)
+			break;
+	}
+
+	if (thread_id == MAX_TASKS)
+		return -1;
+
+	// Create the stack
+	stack_start = malloc(STACK_SIZE * sizeof(uint32_t));
+
+	if (stack_start == 0)
+		return -1;
+
+	tasks[thread_id].stack_start = stack_start;
+
+	// End of stack, minus what we are about to push
+	stack_start += STACK_SIZE - 32;
+
+	if (first)
+	{
+		stack_start[8] = (unsigned int) thread;
+		stack_start[9] = (unsigned int) data;
+		first = 0;
+	}
+	else
+	{
+		stack_start[8] = (unsigned int) THREAD_PSP;
+		stack_start[9] = (unsigned int) data;
+		stack_start[14] = (unsigned) &thread_self_destroy;
+		stack_start[15] = (unsigned int) thread;
+
+		// PSR Thumb bit
+		stack_start[16] = (unsigned int) 0x21000000;
+	}
+
+	tasks[thread_id].stack_p = stack_start;
+	tasks[thread_id].active = 1;
+
 	return 0;
 }
 
@@ -24,6 +71,15 @@ void thread_destroy(int thread_id)
 
 	// Free the stack
 	free(tasks[thread_id].stack_start);
+}
+
+void thread_self_destroy(void)
+{
+	asm volatile("cpsid i\n");
+	thread_destroy(last_task_id);
+	asm volatile("cpsie i\n");
+
+	while (1);
 }
 
 void threads_run(void)
