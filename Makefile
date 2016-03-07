@@ -1,5 +1,5 @@
 # Name of the binaries.
-PROJ_NAME=stm32f4-mini-os
+PROJ_NAME=stm32f4-nano-os
 
 ######################################################################
 #                         SETUP TOOLS                                #
